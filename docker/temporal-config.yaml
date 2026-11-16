@@ -1,0 +1,93 @@
+# enable-template
+# Rendered at startup by Temporal's config loader (Go template + sprig).
+# All connection values and secrets come from the environment; nothing secret
+# belongs in this file. See .env.template for the variables.
+{{- if not (env "POSTGRES_PWD") }}{{ fail "POSTGRES_PWD must be set" }}{{ end }}
+log:
+  stdout: true
+  level: {{ env "TEMPORAL_LOG_LEVEL" | default "info" | quote }}
+
+persistence:
+  defaultStore: default
+  visibilityStore: es-visibility
+  numHistoryShards: 512
+  datastores:
+    default:
+      sql:
+        pluginName: "postgres12"
+        driverName: "postgres12"
+        databaseName: {{ env "DBNAME" | default "temporal" | quote }}
+        connectAddr: "{{ env "POSTGRES_SEEDS" | default "postgresql" }}:{{ env "DB_PORT" | default "5432" }}"
+        connectProtocol: "tcp"
+        user: {{ env "POSTGRES_USER" | default "temporal" | quote }}
+        password: {{ env "POSTGRES_PWD" | quote }}
+        maxConnLifetime: 1h
+        maxConns: {{ env "POSTGRES_MAX_CONNS" | default "20" }}
+        secretName: ""
+        tls:
+          enabled: {{ env "SQL_TLS_ENABLED" | default "false" }}
+    es-visibility:
+      elasticsearch:
+        version: "v7"
+        logLevel: "error"
+        url:
+          scheme: {{ env "ES_SCHEME" | default "http" | quote }}
+          host: "{{ env "ES_SEEDS" | default "opensearch" }}:{{ env "ES_PORT" | default "9200" }}"
+        indices:
+          visibility: {{ env "ES_VIS_INDEX" | default "temporal_visibility_v1_dev" | quote }}
+        closeIdleConnectionsInterval: 15s
+
+global:
+  membership:
+    maxJoinDuration: 30s
+    broadcastAddress: "127.0.0.1"
+  pprof:
+    port: 7936
+
+services:
+  frontend:
+    rpc:
+      grpcPort: 7233
+      httpPort: 7243
+      membershipPort: 6933
+      bindOnIP: "0.0.0.0"
+
+  history:
+    rpc:
+      grpcPort: 7234
+      membershipPort: 6934
+      bindOnIP: "0.0.0.0"
+
+  matching:
+    rpc:
+      grpcPort: 7235
+      membershipPort: 6935
+      bindOnIP: "0.0.0.0"
+
+  worker:
+    rpc:
+      membershipPort: 6939
+      bindOnIP: "0.0.0.0"
+
+clusterMetadata:
+  enableGlobalDomain: false
+  failoverVersionIncrement: 10
+  masterClusterName: "active"
+  currentClusterName: "active"
+  clusterInformation:
+    active:
+      enabled: true
+      initialFailoverVersion: 1
+      rpcName: "temporal-frontend"
+      rpcAddress: "127.0.0.1:7233"
+      httpAddress: "127.0.0.1:7243"
+
+dcRedirectionPolicy:
+  policy: "noop"
+  toDC: ""
+
+archival:
+  status: "disabled"
+
+publicClient:
+  hostPort: "127.0.0.1:7233"

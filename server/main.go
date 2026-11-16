@@ -207,7 +207,7 @@ func getRequiredRole(access api.Access) authorization.Role {
 func main() {
 	log.Println("🚀 Starting Temporal Server with OIDC Authentication...")
 
-	cfg, err := config.LoadConfig("development", "./config", "")
+	cfg, err := config.Load(config.WithEnv("development"), config.WithConfigDir("./config"))
 	if err != nil {
 		log.Fatal(err)
 	}

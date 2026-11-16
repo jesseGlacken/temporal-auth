@@ -1,6 +1,11 @@
+# enable-template
+# Rendered at startup by Temporal's config loader (Go template + sprig).
+# All connection values and secrets come from the environment; nothing secret
+# belongs in this file. See .env.template for the variables.
+{{- if not (env "POSTGRES_PWD") }}{{ fail "POSTGRES_PWD must be set" }}{{ end }}
 log:
   stdout: true
-  level: "debug,info"
+  level: {{ env "TEMPORAL_LOG_LEVEL" | default "info" | quote }}
 
 persistence:
   defaultStore: default
@@ -11,26 +16,30 @@ persistence:
       sql:
         pluginName: "postgres12"
         driverName: "postgres12"
-        databaseName: "temporal"
-        connectAddr: "postgres-postgresql.postgres.svc.cluster.local:5432"
+        databaseName: {{ env "DBNAME" | default "temporal" | quote }}
+        connectAddr: "{{ env "POSTGRES_SEEDS" | default "postgres-postgresql.postgres.svc.cluster.local" }}:{{ env "DB_PORT" | default "5432" }}"
         connectProtocol: "tcp"
-        user: temporal
-        password: "temporal"
+        user: {{ env "POSTGRES_USER" | default "temporal" | quote }}
+        password: {{ env "POSTGRES_PWD" | quote }}
         maxConnLifetime: 1h
-        maxConns: 20
+        maxConns: {{ env "POSTGRES_MAX_CONNS" | default "20" }}
         secretName: ""
+        tls:
+          enabled: {{ env "SQL_TLS_ENABLED" | default "false" }}
     visibility:
       sql:
         pluginName: "postgres12"
         driverName: "postgres12"
-        databaseName: "temporal_visibility"
-        connectAddr: "postgres-postgresql.postgres.svc.cluster.local:5432"
+        databaseName: {{ env "VISIBILITY_DBNAME" | default "temporal_visibility" | quote }}
+        connectAddr: "{{ env "POSTGRES_SEEDS" | default "postgres-postgresql.postgres.svc.cluster.local" }}:{{ env "DB_PORT" | default "5432" }}"
         connectProtocol: "tcp"
-        user: "temporal"
-        password: "temporal"
+        user: {{ env "POSTGRES_USER" | default "temporal" | quote }}
+        password: {{ env "POSTGRES_PWD" | quote }}
         maxConnLifetime: 1h
-        maxConns: 20
+        maxConns: {{ env "POSTGRES_MAX_CONNS" | default "20" }}
         secretName: ""
+        tls:
+          enabled: {{ env "SQL_TLS_ENABLED" | default "false" }}
 
 global:
   membership:

@@ -26,6 +26,20 @@ stringData:
     os.getenv('TEMPORAL_OIDC_CLIENT_SECRET', '')
 )))
 
+# Postgres credentials (shared by the postgres pod, Helm schema jobs and server)
+if not os.getenv('POSTGRES_PWD'):
+    fail('POSTGRES_PWD is not set; add it to .env (see .env.template)')
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Secret
+metadata:
+  name: temporal-db
+  namespace: temporal
+type: Opaque
+stringData:
+  password: "{}"
+""".format(os.getenv('POSTGRES_PWD'))))
+
 # Build custom Temporal server with auth
 docker_build(
     'temporal-auth-server',

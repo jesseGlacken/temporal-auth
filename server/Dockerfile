@@ -1,51 +1,29 @@
-# Build Stage: Use latest Go version
-FROM golang:1.23.2 AS builder
+# ---- Build stage -----------------------------------------------------------
+FROM golang:1.26.10-bookworm AS builder
+
+WORKDIR /src
+
+# CGO is required; gcc/libc headers ship with the golang image.
+ENV CGO_ENABLED=1
+
+# Copy module files first for layer caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN go build -trimpath -ldflags="-s -w" -o /out/temporal-auth-server main.go
+
+# ---- Runtime stage ---------------------------------------------------------
+# distroless base (glibc, no shell/package manager), runs as uid 65532.
+FROM gcr.io/distroless/base-debian12:nonroot
 
 WORKDIR /app
 
-# Install GCC and required dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gcc \
-    libc-dev \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/temporal-auth-server /app/temporal-auth-server
+# Templated config: contains no secrets; values come from env at startup.
+# Docker Compose overrides this by mounting docker/temporal-config.yaml.
+COPY --chown=nonroot:nonroot config/ /app/config/
 
-# Create a non-root user
-RUN useradd -u 1000 -m temporaluser
+USER nonroot:nonroot
 
-# Set up permissions for Go modules cache (to avoid permission denied issues)
-RUN mkdir -p /go/pkg/mod /go/build && \
-    chown -R temporaluser:temporaluser /go/pkg /go/build /app && \
-    chmod -R 777 /go/pkg /go/build /app
-
-# Set environment variables for CGO to work
-ENV CGO_ENABLED=1
-ENV CC=gcc
-ENV CXX=g++
-ENV GOPATH=/go
-ENV GOCACHE=/go/build
-
-# Copy Go module files first (better Docker caching)
-COPY go.mod go.sum ./
-
-# Download dependencies as root (better caching)
-RUN go mod download
-
-# Switch to non-root user
-USER temporaluser
-
-# Copy the source code after dependencies are downloaded
-COPY --chown=temporaluser:temporaluser . .
-
-# Build the Go binary
-RUN go build -o /app/temporal-auth-server main.go
-
-# Ensure the binary has execute permissions
-RUN chmod +x /app/temporal-auth-server
-
-# Set back to root for final runtime setup
-USER root
-
-# Use the start script as entrypoint
 ENTRYPOINT ["/app/temporal-auth-server"]

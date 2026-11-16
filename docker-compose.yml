@@ -1,0 +1,44 @@
+# Override for temporal-auth RBAC/OIDC server.
+#
+# Replaces the stock temporalio/server image with the custom auth server and
+# injects OIDC auth variables into the Temporal UI. All other services
+# (postgresql, opensearch, temporal-admin-tools, temporal-create-namespace)
+# come from the base compose unchanged.
+#
+# Usage (Dokploy or CLI):
+#   docker compose \
+#     -f /path/to/temporal-server-operations/compose/docker-compose-postgres-opensearch.yml \
+#     -f docker-compose.yml \
+#     up --build
+#
+# Prerequisites:
+#   - Copy .env.template to .env and fill in OIDC credentials.
+#   - The embedded go.temporal.io/server version in server/go.mod must match
+#     TEMPORAL_ADMINTOOLS_VERSION in the base compose .env, or the server will
+#     reject the schema created by admin-tools. Update go.mod if needed.
+
+services:
+  temporal:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: temporal-auth-server:latest
+    env_file:
+      - .env
+    environment:
+      TEMPORAL_OIDC_ISSUER_URL: ${TEMPORAL_OIDC_ISSUER_URL}
+      TEMPORAL_OIDC_CLIENT_ID: ${TEMPORAL_OIDC_CLIENT_ID}
+    volumes:
+      - ./docker/temporal-config.yaml:/app/config/development.yaml
+
+# Add to temporal-ui service in the main docker-compose stack:
+
+  # temporal-ui:
+  #   environment:
+  #     TEMPORAL_AUTH_ENABLED: "true"
+  #     TEMPORAL_AUTH_PROVIDER_URL: ${TEMPORAL_OIDC_ISSUER_URL}
+  #     TEMPORAL_AUTH_ISSUER_URL: ${TEMPORAL_OIDC_ISSUER_URL}
+  #     TEMPORAL_AUTH_CLIENT_ID: ${TEMPORAL_OIDC_CLIENT_ID}
+  #     TEMPORAL_AUTH_CLIENT_SECRET: ${TEMPORAL_OIDC_CLIENT_SECRET}
+  #     TEMPORAL_AUTH_CALLBACK_URL: ${TEMPORAL_AUTH_CALLBACK_URL:-http://localhost:8080/auth/sso/callback}
+  #     TEMPORAL_AUTH_SCOPES: openid,email,profile

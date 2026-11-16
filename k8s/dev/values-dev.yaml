@@ -17,6 +17,11 @@ server:
         secretKeyRef:
           name: temporal-auth-secrets
           key: client_id
+    - name: POSTGRES_PWD
+      valueFrom:
+        secretKeyRef:
+          name: temporal-db
+          key: password
   frontend:
     service:
       type: ClusterIP  # Use ClusterIP for local development
@@ -35,7 +40,7 @@ server:
           port: 5432
           database: "temporal"
           user: "temporal"
-          password: "temporal"
+          existingSecret: temporal-db  # key "password"; created by Tiltfile from .env
           maxConns: 20
           maxConnLifetime: "1h"
       visibility:
@@ -46,7 +51,7 @@ server:
           port: 5432
           database: "temporal_visibility"
           user: "temporal"
-          password: "temporal"
+          existingSecret: temporal-db  # key "password"; created by Tiltfile from .env
           maxConns: 20
           maxConnLifetime: "1h"
 

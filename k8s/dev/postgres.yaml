@@ -52,7 +52,10 @@ spec:
             - name: POSTGRES_USER
               value: "temporal"
             - name: POSTGRES_PASSWORD
-              value: "temporal"
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-db
+                  key: password
           ports:
             - containerPort: 5432
           volumeMounts:
